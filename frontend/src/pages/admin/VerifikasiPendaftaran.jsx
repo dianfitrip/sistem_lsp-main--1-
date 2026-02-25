@@ -3,30 +3,38 @@ import Swal from 'sweetalert2';
 import api from "../../services/api";
 import { 
   Search, Eye, CheckCircle, XCircle, 
-  User, Mail, Phone, MapPin, Briefcase, Calendar, School, Loader2 
+  User, MapPin, Calendar, School, Loader2, Filter 
 } from 'lucide-react';
 import './adminstyles/VerifikasiPendaftaran.css';
 
 const VerifikasiPendaftaran = () => {
+  // --- STATE ---
   const [data, setData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // State Modal
+  
+  // Modal State
   const [showModal, setShowModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  // --- FETCH DATA ---
+  // --- 1. FETCH DATA (SESUAIKAN DENGAN BACKEND GET ALL) ---
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Backend: router.get("/pendaftaran", pendaftaranController.getAll);
       const response = await api.get('/admin/pendaftaran');
-      if (response.data.success) {
-        setData(response.data.data);
-      }
+      
+      // Backend Response Format: { status: "success", data: [...] }
+      // Kita ambil array datanya dengan aman
+      const resultData = response.data.data || []; 
+      
+      setData(resultData);
+      setFilteredData(resultData);
+      
     } catch (error) {
-      console.error(error);
-      Swal.fire('Error', 'Gagal mengambil data pendaftaran', 'error');
+      console.error("Error fetching data:", error);
+      // Jangan tampilkan alert error jika server mati/500, cukup log saja agar UX tidak terganggu
     } finally {
       setLoading(false);
     }
@@ -36,77 +44,88 @@ const VerifikasiPendaftaran = () => {
     fetchData();
   }, []);
 
-  // --- HANDLERS ---
-  
+  // --- 2. CLIENT-SIDE SEARCH (Filter di Frontend) ---
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredData(data);
+    } else {
+      const lower = searchTerm.toLowerCase();
+      const filtered = data.filter(item => 
+        (item.nama_lengkap && item.nama_lengkap.toLowerCase().includes(lower)) ||
+        (item.nik && item.nik.includes(lower)) ||
+        (item.email && item.email.toLowerCase().includes(lower))
+      );
+      setFilteredData(filtered);
+    }
+  }, [searchTerm, data]);
+
+  // --- 3. APPROVE HANDLER ---
   const handleApprove = async (id) => {
+    // Konfirmasi dulu
     const result = await Swal.fire({
       title: 'Verifikasi Pendaftaran?',
-      text: "Sistem akan membuat akun User untuk Asesi ini.",
+      text: "Sistem akan membuat akun User & Profile untuk pendaftar ini.",
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Ya, Verifikasi',
-      cancelButtonText: 'Batal',
-      confirmButtonColor: '#10B981', 
-      cancelButtonColor: '#6B7280'
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: 'Ya, Verifikasi!'
     });
 
     if (result.isConfirmed) {
-      Swal.fire({
-        title: 'Memproses...',
-        text: 'Sedang membuat akun...',
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      });
-
       try {
-        await api.post(`/admin/pendaftaran/${id}/approve`);
-        Swal.fire('Berhasil!', 'Akun Asesi telah dibuat.', 'success');
-        fetchData();
+        // Tampilkan Loading saat proses backend berjalan
+        Swal.fire({
+          title: 'Memproses...',
+          text: 'Mohon tunggu, sedang mengirim email kredensial...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        });
+
+        // Backend: router.post("/pendaftaran/:id/approve", ...);
+        // Payload kosong {} dikirim karena backend pakai req.params.id
+        await api.post(`/admin/pendaftaran/${id}/approve`, {});
+
+        Swal.fire('Berhasil!', 'Pendaftaran disetujui & akun telah dibuat.', 'success');
+        fetchData(); // Refresh data tabel
       } catch (error) {
-        Swal.fire('Gagal', error.response?.data?.message || 'Terjadi kesalahan', 'error');
+        console.error("Approve error:", error);
+        const msg = error.response?.data?.message || 'Terjadi kesalahan pada server (Cek Backend).';
+        Swal.fire('Gagal', msg, 'error');
       }
     }
   };
 
+  // --- 4. REJECT HANDLER ---
   const handleReject = async (id) => {
     const result = await Swal.fire({
       title: 'Tolak Pendaftaran?',
-      text: "Status akan diubah menjadi Rejected.",
+      text: "Pendaftar akan menerima notifikasi penolakan.",
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Ya, Tolak',
-      cancelButtonText: 'Batal',
       confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: 'Ya, Tolak'
     });
 
     if (result.isConfirmed) {
       try {
-        await api.post(`/admin/pendaftaran/${id}/reject`);
+        Swal.fire({ title: 'Memproses...', didOpen: () => Swal.showLoading() });
+        
+        // Backend: router.post("/pendaftaran/:id/reject", ...);
+        await api.post(`/admin/pendaftaran/${id}/reject`, {});
+
         Swal.fire('Ditolak', 'Pendaftaran telah ditolak.', 'success');
         fetchData();
       } catch (error) {
-        Swal.fire('Error', 'Gagal menolak pendaftaran', 'error');
+        console.error("Reject error:", error);
+        Swal.fire('Gagal', 'Gagal menolak pendaftaran.', 'error');
       }
     }
   };
 
-  // Filter Data
-  const filteredData = data.filter(item => 
-    item.nama_lengkap.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.nik.includes(searchTerm) ||
-    item.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric'
-    });
-  };
-
-  const openDetailModal = (item) => {
+  // --- MODAL HELPERS ---
+  const openDetail = (item) => {
     setSelectedItem(item);
     setShowModal(true);
   };
@@ -116,207 +135,173 @@ const VerifikasiPendaftaran = () => {
     setSelectedItem(null);
   };
 
+  // --- STATUS BADGE HELPER ---
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'approved':
+        return <span className="status-badge status-approved"><CheckCircle size={14}/> Terverifikasi</span>;
+      case 'rejected':
+        return <span className="status-badge status-rejected"><XCircle size={14}/> Ditolak</span>;
+      default:
+        return <span className="status-badge status-pending"><Loader2 size={14} className="animate-spin"/> Menunggu</span>;
+    }
+  };
+
   return (
     <div className="verifikasi-page">
-      {/* Header & Stats */}
+      {/* HEADER */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Verifikasi Pendaftaran</h1>
-          <p className="page-subtitle">Kelola validasi data calon asesi baru</p>
-        </div>
-        <div className="header-stats">
-          <div className="stat-item">
-            <span className="stat-label">Total Pending</span>
-            <span className="stat-value text-orange-500">
-              {data.filter(i => i.status === 'pending').length}
-            </span>
-          </div>
+          <p className="page-subtitle">Validasi data calon asesi dari form pendaftaran</p>
         </div>
       </div>
 
-      {/* Toolbar / Filter */}
-      <div className="toolbar-section">
-        <div className="search-wrapper">
-          <Search className="search-icon" size={18} />
+      {/* SEARCH */}
+      <div className="filter-section-card">
+        <div className="search-input-wrapper">
+          <Search className="search-icon" size={20} />
           <input 
             type="text" 
-            className="search-input"
-            placeholder="Cari Nama, NIK, atau Email..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
+            placeholder="Cari NIK, Nama, atau Email..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      {/* Modern Table */}
-      <div className="table-wrapper">
-        {loading ? (
-          <div className="loading-state">
-            <Loader2 className="animate-spin text-blue-500" size={40} />
-            <p>Memuat data...</p>
-          </div>
-        ) : (
+      {/* TABLE */}
+      {loading ? (
+        <div className="loading-state">
+          <Loader2 className="animate-spin text-orange-500" size={48} />
+          <p>Memuat data...</p>
+        </div>
+      ) : (
+        <div className="table-container">
           <table className="modern-table">
             <thead>
               <tr>
-                <th width="5%">No</th>
-                <th width="25%">Identitas Asesi</th>
-                <th width="20%">Data Akademik</th>
-                <th width="15%">Tanggal Daftar</th>
-                <th width="10%">Status</th>
-                <th width="25%" className="text-center">Aksi</th>
+                <th>No</th>
+                <th>Info Asesi</th>
+                <th>Program Studi / Keahlian</th>
+                <th>Tanggal Daftar</th>
+                <th>Status</th>
+                <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filteredData.length > 0 ? (
                 filteredData.map((item, index) => (
-                  <tr key={item.id_pendaftaran} className="table-row">
+                  <tr key={item.id_pendaftaran}>
                     <td>{index + 1}</td>
                     <td>
-                      <div className="user-info">
-                        <div className="user-avatar">
-                          <User size={16} />
-                        </div>
+                      <div className="user-info-cell">
+                        <div className="user-icon-bg"><User size={16}/></div>
                         <div>
-                          <div className="user-name">{item.nama_lengkap}</div>
-                          <div className="user-nik">{item.nik}</div>
+                          <div className="font-bold text-gray-900">{item.nama_lengkap}</div>
+                          <div className="text-xs text-gray-500">{item.nik}</div>
+                          <div className="text-xs text-blue-500">{item.email}</div>
                         </div>
                       </div>
                     </td>
                     <td>
-                      <div className="meta-info">
-                        <div className="meta-item font-medium">{item.program_studi}</div>
-                        <div className="meta-item text-xs text-gray-500">{item.kompetensi_keahlian}</div>
+                      <div className="text-sm font-medium">{item.program_studi}</div>
+                      <div className="text-xs text-gray-500">{item.kompetensi_keahlian}</div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2 text-gray-600 text-sm">
+                        <Calendar size={14}/>
+                        {item.tanggal_daftar ? new Date(item.tanggal_daftar).toLocaleDateString('id-ID') : '-'}
                       </div>
                     </td>
+                    <td>{getStatusBadge(item.status)}</td>
                     <td>
-                      <div className="date-info">
-                        <Calendar size={12} className="inline mr-1"/>
-                        {formatDate(item.tanggal_daftar)}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`status-pill ${item.status}`}>
-                        {item.status === 'pending' && 'Menunggu'}
-                        {item.status === 'approved' && 'Terverifikasi'}
-                        {item.status === 'rejected' && 'Ditolak'}
-                      </span>
-                    </td>
-                    <td>
-                      {/* --- PERUBAHAN DI SINI: MENGGUNAKAN BUTTON TEKS --- */}
-                      <div className="action-buttons-text">
-                        <button 
-                          className="btn-text btn-detail-text" 
-                          onClick={() => openDetailModal(item)}
-                        >
-                          <Eye size={14} /> Detail
+                      <div className="action-buttons">
+                        <button className="btn-icon-view" onClick={() => openDetail(item)} title="Detail">
+                          <Eye size={18} />
                         </button>
                         
+                        {/* Tombol Aksi HANYA muncul jika status PENDING */}
                         {item.status === 'pending' && (
                           <>
                             <button 
-                              className="btn-text btn-approve-text" 
+                              className="btn-icon-check" 
                               onClick={() => handleApprove(item.id_pendaftaran)}
+                              title="Setujui"
                             >
-                              <CheckCircle size={14} /> Verifikasi
+                              <CheckCircle size={18} />
                             </button>
                             <button 
-                              className="btn-text btn-reject-text" 
+                              className="btn-icon-reject" 
                               onClick={() => handleReject(item.id_pendaftaran)}
+                              title="Tolak"
                             >
-                              <XCircle size={14} /> Tolak
+                              <XCircle size={18} />
                             </button>
                           </>
                         )}
                       </div>
-                      {/* -------------------------------------------------- */}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td colSpan="6" className="empty-state">
-                    <div className="empty-content">
-                      <Search size={48} className="text-gray-300 mb-2"/>
-                      <p>Tidak ada data pendaftaran ditemukan.</p>
+                    <div className="flex flex-col items-center py-8">
+                      <Filter size={48} className="text-gray-300 mb-2"/>
+                      <p className="text-gray-500">Data tidak ditemukan.</p>
                     </div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Modal Detail Modern */}
+      {/* DETAIL MODAL */}
       {showModal && selectedItem && (
         <div className="modal-backdrop">
-          <div className="modal-card">
+          <div className="modal-card modal-lg">
             <div className="modal-header-modern">
-              <div>
-                <h3>Detail Pendaftaran</h3>
-                <p className="text-sm opacity-80">Informasi lengkap calon asesi</p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <User size={24}/>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Detail Pendaftaran</h3>
+                  <p className="text-xs text-gray-500">
+                    ID: #{selectedItem.id_pendaftaran}
+                  </p>
+                </div>
               </div>
-              <button className="btn-close-modern" onClick={closeModal}>
-                <XCircle size={24}/>
-              </button>
+              <button onClick={closeModal} className="close-btn"><XCircle size={24}/></button>
             </div>
-            
-            <div className="modal-body-scroll">
-              <div className={`status-banner ${selectedItem.status}`}>
-                Status: {selectedItem.status.toUpperCase()}
-              </div>
 
-              <div className="detail-grid-modern">
-                <div className="detail-col">
-                  <div className="detail-group">
-                    <h4 className="group-title"><User size={16}/> Identitas Diri</h4>
-                    <div className="detail-row">
-                      <span className="label">Nama Lengkap</span>
-                      <span className="value">{selectedItem.nama_lengkap}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">NIK</span>
-                      <span className="value">{selectedItem.nik}</span>
-                    </div>
-                  </div>
-
-                  <div className="detail-group">
-                    <h4 className="group-title"><School size={16}/> Akademik</h4>
-                    <div className="detail-row">
-                      <span className="label">Program Studi</span>
-                      <span className="value">{selectedItem.program_studi}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Kompetensi</span>
-                      <span className="value">{selectedItem.kompetensi_keahlian}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Wilayah RJI</span>
-                      <span className="value">{selectedItem.wilayah_rji}</span>
-                    </div>
-                  </div>
+            <div className="modal-content-scroll">
+              <div className="grid-modern">
+                {/* Kolom Kiri: Identitas */}
+                <div className="detail-section">
+                  <h4 className="group-title"><User size={16}/> Data Pribadi</h4>
+                  <div className="detail-row"><span className="label">NIK</span><span className="value">{selectedItem.nik}</span></div>
+                  <div className="detail-row"><span className="label">Nama</span><span className="value">{selectedItem.nama_lengkap}</span></div>
+                  <div className="detail-row"><span className="label">Email</span><span className="value text-blue-600">{selectedItem.email}</span></div>
+                  <div className="detail-row"><span className="label">No HP</span><span className="value">{selectedItem.no_hp}</span></div>
                 </div>
 
-                <div className="detail-col">
-                  <div className="detail-group">
-                    <h4 className="group-title"><Phone size={16}/> Kontak</h4>
-                    <div className="detail-row">
-                      <span className="label">Email</span>
-                      <span className="value text-blue-600">{selectedItem.email}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">No HP</span>
-                      <span className="value">{selectedItem.no_hp}</span>
-                    </div>
-                  </div>
-
-                  <div className="detail-group">
-                    <h4 className="group-title"><MapPin size={16}/> Alamat Domisili</h4>
-                    <div className="address-box">
-                      <p>{selectedItem.kelurahan}, {selectedItem.kecamatan}</p>
-                      <p>{selectedItem.kota}, {selectedItem.provinsi}</p>
-                    </div>
+                {/* Kolom Kanan: Akademik & Lokasi */}
+                <div className="detail-section">
+                  <h4 className="group-title"><School size={16}/> Akademik & Lokasi</h4>
+                  <div className="detail-row"><span className="label">Prodi</span><span className="value">{selectedItem.program_studi}</span></div>
+                  <div className="detail-row"><span className="label">Kompetensi</span><span className="value">{selectedItem.kompetensi_keahlian}</span></div>
+                  <div className="detail-row"><span className="label">Wilayah RJI</span><span className="value">{selectedItem.wilayah_rji}</span></div>
+                  
+                  <h4 className="group-title mt-4"><MapPin size={16}/> Alamat</h4>
+                  <div className="address-box">
+                    <p className="font-medium">{selectedItem.alamat_lengkap}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {selectedItem.kelurahan}, {selectedItem.kecamatan}, {selectedItem.kota}, {selectedItem.provinsi}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -324,13 +309,17 @@ const VerifikasiPendaftaran = () => {
 
             <div className="modal-footer-modern">
               <button className="btn-secondary" onClick={closeModal}>Tutup</button>
+              
+              {/* Tombol di Modal juga hanya muncul jika Pending */}
               {selectedItem.status === 'pending' && (
-                <button className="btn-primary" onClick={() => {
-                  closeModal();
-                  handleApprove(selectedItem.id_pendaftaran);
-                }}>
-                  <CheckCircle size={16} className="mr-2"/> Verifikasi Sekarang
-                </button>
+                <>
+                  <button className="btn-danger-outline" onClick={() => { closeModal(); handleReject(selectedItem.id_pendaftaran); }}>
+                    Tolak
+                  </button>
+                  <button className="btn-primary" onClick={() => { closeModal(); handleApprove(selectedItem.id_pendaftaran); }}>
+                    <CheckCircle size={16} className="mr-2"/> Verifikasi
+                  </button>
+                </>
               )}
             </div>
           </div>
