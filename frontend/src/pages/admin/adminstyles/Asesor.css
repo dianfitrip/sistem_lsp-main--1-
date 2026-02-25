@@ -1,388 +1,382 @@
-/* Container Utama */
+/* --- CONTAINER HALAMAN --- */
 .asesor-container {
   padding: 24px;
-  background-color: #FFFFFF;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  background-color: #F8FAFC; /* Light gray background */
+  min-height: 100vh;
   font-family: 'Inter', sans-serif;
-  min-height: 80vh;
 }
 
-/* Header Section */
+/* --- HEADER --- */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  border-bottom: 1px solid #F1F5F9;
-  padding-bottom: 20px;
+  background: white;
+  padding: 20px 24px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .page-title {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
-  color: #0F172A;
-  margin: 0 0 4px 0;
+  color: #1E293B;
+  margin: 0;
 }
 
 .page-subtitle {
   font-size: 14px;
   color: #64748B;
-  margin: 0;
+  margin-top: 4px;
 }
 
-/* --- BUTTONS UTAMA (Header) --- */
+/* --- TOMBOL UTAMA --- */
 .action-buttons-group {
   display: flex;
   gap: 12px;
 }
 
-/* Tombol Primary (Tambah) - Orange (Konsisten dengan Skkni) */
 .btn-action-primary {
+  background-color: #F97316; /* Orange Utama */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  background-color: #F97316; 
-  color: white;
-  border-radius: 8px;
-  border: none;
-  font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
+
 .btn-action-primary:hover {
   background-color: #EA580C;
+  transform: translateY(-1px);
 }
 
-/* Tombol Secondary (Import Excel) - Hijau */
 .btn-action-secondary {
+  background-color: white;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  background-color: #10B981; /* Emerald Green untuk Excel */
-  color: white;
-  border-radius: 8px;
-  border: none;
-  font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
+
 .btn-action-secondary:hover {
-  background-color: #059669;
+  background-color: #F1F5F9;
+  border-color: #94A3B8;
 }
 
-/* Filter Section */
-.filter-container {
-  margin-bottom: 24px;
+/* --- SEARCH & FILTER --- */
+.filter-section {
+  background: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-.search-wrapper {
-  position: relative;
-  width: 300px;
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  width: 100%;
+  max-width: 400px;
 }
 
 .search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
   color: #94A3B8;
+  margin-right: 10px;
 }
 
-.search-wrapper input {
+.search-box input {
+  border: none;
+  background: transparent;
   width: 100%;
-  padding: 10px 10px 10px 40px;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  font-size: 14px;
   outline: none;
-}
-.search-wrapper input:focus {
-  border-color: #F97316;
+  color: #334155;
+  font-size: 14px;
 }
 
-/* --- TABLE STYLES --- */
+/* --- TABEL --- */
 .table-responsive {
-  overflow-x: auto;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
 }
 
-.custom-table {
+.modern-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.custom-table th, .custom-table td {
-  padding: 14px 16px;
-  text-align: left;
-  border-bottom: 1px solid #F1F5F9;
-  vertical-align: middle;
+.modern-table thead {
+  background-color: #F8FAFC;
+  border-bottom: 2px solid #E2E8F0;
 }
 
-.custom-table th {
-  background-color: #F8FAFC;
-  font-weight: 600;
-  color: #475569;
+.modern-table th {
+  padding: 16px 24px;
+  text-align: left;
   font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-/* Table Content Styling */
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.modern-table td {
+  padding: 16px 24px;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 14px;
+  color: #334155;
+  vertical-align: middle;
 }
 
-.avatar-placeholder {
-  width: 36px;
-  height: 36px;
-  background-color: #E0F2FE;
-  color: #0284C7;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.modern-table tr:hover {
+  background-color: #FFF7ED; /* Light Orange hover */
 }
 
-.location-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background-color: #F1F5F9;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  color: #64748B;
-}
-
+/* Status Badge */
 .status-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
 }
-.status-badge.active { background-color: #DCFCE7; color: #166534; }
-.status-badge.inactive { background-color: #FEE2E2; color: #991B1B; }
 
-/* --- ACTION BUTTONS IN TABLE (Edit, Delete, Detail) --- */
+.status-active {
+  background-color: #DCFCE7;
+  color: #166534;
+}
+
+.status-inactive {
+  background-color: #FEE2E2;
+  color: #991B1B;
+}
+
+/* Action Buttons in Table */
 .action-buttons {
   display: flex;
-  gap: 6px;
-}
-
-.btn-icon {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s;
-  padding: 0;
-  background: transparent;
-}
-
-/* Memastikan ikon SVG terlihat jelas */
-.btn-icon svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2px;
-  stroke: currentColor;
-  fill: none;
-}
-
-/* Warna Spesifik per Tombol */
-.btn-icon.view { background-color: #F0F9FF; color: #0284C7; }
-.btn-icon.view:hover { background-color: #E0F2FE; border-color: #0284C7; }
-
-.btn-icon.edit { background-color: #FFF7ED; color: #F97316; }
-.btn-icon.edit:hover { background-color: #FFEDD5; border-color: #F97316; }
-
-.btn-icon.delete { background-color: #FEF2F2; color: #EF4444; }
-.btn-icon.delete:hover { background-color: #FEE2E2; border-color: #EF4444; }
-
-
-/* Pagination */
-.pagination-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 20px;
-  border-top: 1px solid #F1F5F9;
-}
-
-.pagination-buttons {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.pagination-buttons button {
-  padding: 6px;
+.btn-icon-view, .btn-icon-edit, .btn-icon-delete {
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
-  border: 1px solid #E2E8F0;
-  background: white;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.pagination-buttons button:hover:not(:disabled) {
-  background-color: #F8FAFC;
-}
-.pagination-buttons button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn-icon-view { background: #E0F2FE; color: #0284C7; }
+.btn-icon-edit { background: #FEF3C7; color: #D97706; }
+.btn-icon-delete { background: #FEE2E2; color: #DC2626; }
 
-/* --- MODAL STYLES --- */
+.btn-icon-view:hover { background: #BAE6FD; }
+.btn-icon-edit:hover { background: #FDE68A; }
+.btn-icon-delete:hover { background: #FECACA; }
+
+/* =========================================
+   MODAL STYLING (FIX SCROLLING)
+   ========================================= */
+
+/* Backdrop: Gelap di belakang modal */
 .modal-backdrop {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(15, 23, 42, 0.6); /* Slate-900 opacity */
+  backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center; /* Center Vertically */
   z-index: 1000;
+  padding: 20px; /* Jarak aman dari tepi layar */
 }
 
+/* Card Modal: Kontainer Utama */
 .modal-card {
   background: white;
-  border-radius: 12px;
-  width: 500px;
-  max-width: 90%;
-  max-height: 90vh;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 900px; /* Lebar maksimum */
+  max-height: 90vh; /* Tinggi MAKSIMUM 90% layar agar tidak overflow keluar layar */
   display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  flex-direction: column; /* Susun Header, Body, Footer secara vertikal */
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: modalSlideIn 0.3s ease-out;
 }
 
-.modal-card.large {
-  width: 800px; /* Lebar modal form asesor */
+@keyframes modalSlideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
+/* Header Modal: Tetap di atas (tidak ikut scroll) */
 .modal-header-modern {
-  padding: 16px 24px;
+  padding: 20px 30px;
   border-bottom: 1px solid #E2E8F0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  flex-shrink: 0; /* Jangan menyusut */
 }
 
-.modal-header-modern h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #0F172A;
+/* KONTEN SCROLLABLE: Ini kuncinya! */
+.modal-content-scroll {
+  padding: 30px;
+  overflow-y: auto; /* Scroll vertikal aktif jika konten panjang */
+  flex-grow: 1; /* Mengisi ruang kosong di antara header dan footer */
+  background-color: #F8FAFC;
 }
 
-.btn-close-modern {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #94A3B8;
-  padding: 0;
+/* Scrollbar Custom (Opsional - agar cantik) */
+.modal-content-scroll::-webkit-scrollbar {
+  width: 8px;
 }
-.btn-close-modern:hover { color: #64748B; }
-
-.modal-body-scroll {
-  padding: 24px;
-  overflow-y: auto;
-  flex: 1;
+.modal-content-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+.modal-content-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.modal-content-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
-/* Form Styles */
+/* Footer Modal: Tetap di bawah (tidak ikut scroll) */
+.modal-footer-modern {
+  padding: 20px 30px;
+  border-top: 1px solid #E2E8F0;
+  background: white;
+  border-radius: 0 0 16px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* --- FORM ELEMENTS STYLING --- */
 .form-section-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: #334155;
-  margin-bottom: 16px;
+  margin: 24px 0 16px 0;
   padding-bottom: 8px;
-  border-bottom: 1px dashed #E2E8F0;
+  border-bottom: 2px solid #E2E8F0;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-.form-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-
-.form-group { margin-bottom: 12px; }
-.form-group label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #475569;
-  margin-bottom: 6px;
+.form-section-title:first-child {
+  margin-top: 0;
 }
 
-.form-group input, .form-group select, .form-group textarea {
-  width: 100%;
-  padding: 10px;
+/* Form Grid System */
+.grid {
+  display: grid;
+  gap: 20px; /* Jarak antar input */
+}
+
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Responsive Grid: di layar kecil jadi 1 kolom */
+@media (max-width: 768px) {
+  .grid-cols-2, .grid-cols-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.form-group input, 
+.form-group select, 
+.form-group textarea {
+  padding: 10px 12px;
   border: 1px solid #CBD5E1;
   border-radius: 8px;
   font-size: 14px;
-  box-sizing: border-box;
+  color: #1E293B;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: white;
+  width: 100%;
 }
 
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+.form-group input:focus, 
+.form-group select:focus, 
+.form-group textarea:focus {
   outline: none;
   border-color: #F97316;
-  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
 }
 
-.form-group input:disabled, .form-group select:disabled {
+.form-group input:disabled,
+.form-group select:disabled {
   background-color: #F1F5F9;
+  color: #94A3B8;
   cursor: not-allowed;
 }
 
-/* Modal Footer */
-.modal-footer-modern {
-  padding: 16px 24px;
-  border-top: 1px solid #E2E8F0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+/* Tombol di Footer Modal */
+.btn-secondary {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  background: #F1F5F9;
+  color: #475569;
+  border: none;
+  cursor: pointer;
+  transition: 0.2s;
 }
 
-.btn-secondary, .btn-primary {
-  padding: 10px 20px;
+.btn-secondary:hover { background: #E2E8F0; }
+
+.btn-primary {
+  padding: 10px 24px;
   border-radius: 8px;
-  font-weight: 500;
+  font-weight: 600;
+  background: #F97316;
+  color: white;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
+  transition: 0.2s;
 }
 
-.btn-secondary { background-color: #F1F5F9; color: #475569; }
-.btn-secondary:hover { background-color: #E2E8F0; }
-
-.btn-primary { background-color: #F97316; color: white; }
-.btn-primary:hover { background-color: #EA580C; }
-
-/* Import Box Style */
-.import-box {
-  border: 2px dashed #E2E8F0;
-  border-radius: 12px;
-  padding: 32px;
-  text-align: center;
-  background-color: #F8FAFC;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.import-box p {
-  color: #64748B;
-  font-size: 14px;
-  margin: 8px 0 0 0;
-}
+.btn-primary:hover { background: #EA580C; box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.3); }
