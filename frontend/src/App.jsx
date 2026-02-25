@@ -26,6 +26,7 @@ import TempatUji from "./pages/admin/TempatUji";
 import UnitKompetensi from "./pages/admin/UnitKompetensi";
 import VerifikasiPendaftaran from "./pages/admin/VerifikasiPendaftaran";
 import Asesor from "./pages/admin/Asesor";
+import Banding from "./pages/admin/Banding";
 
 /* ================= ROLE GUARD ================= */
 const getUser = () => {
@@ -109,7 +110,7 @@ export default function App() {
           {/* Route Tambahan untuk path yang mungkin belum dibuat file-nya tapi ada di sidebar 
               (Agar tidak blank page, Anda bisa buat komponen Placeholder sementara)
           */}
-           <Route path="banding" element={<div>Halaman Banding (Belum dibuat)</div>} />
+           <Route path="banding" element={<Banding />} />
            <Route path="laporan/*" element={<div>Halaman Laporan (Belum dibuat)</div>} />
            <Route path="keuangan" element={<div>Halaman Keuangan (Belum dibuat)</div>} />
            
