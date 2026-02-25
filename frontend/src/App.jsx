@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 /* ================= PUBLIC PAGES ================= */
 import Home from "./pages/public/Home";
@@ -28,7 +28,6 @@ import VerifikasiPendaftaran from "./pages/admin/VerifikasiPendaftaran";
 import Asesor from "./pages/admin/Asesor";
 
 /* ================= ROLE GUARD ================= */
-
 const getUser = () => {
   const user = localStorage.getItem("user");
   return user ? JSON.parse(user) : null;
@@ -36,15 +35,8 @@ const getUser = () => {
 
 const ProtectedRoute = ({ children, role }) => {
   const user = getUser();
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (role && user.role?.toLowerCase() !== role) {
-    return <Navigate to="/login" replace />;
-  }
-
+  if (!user) return <Navigate to="/login" replace />;
+  if (role && user.role?.toLowerCase() !== role) return <Navigate to="/login" replace />;
   return children;
 };
 
@@ -52,9 +44,7 @@ export default function App() {
   return (
     <Router>
       <Routes>
-
         {/* ================= PUBLIC ROUTES ================= */}
-
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/about" element={<About />} />
@@ -65,30 +55,65 @@ export default function App() {
         <Route path="/registration" element={<Registration />} />
         <Route path="/surveillance" element={<Surveillance />} />
 
-        {/* ================= ADMIN ROUTES ================= */}
-
-        <Route
-          path="/admin/dashboard"
+        {/* ================= ADMIN ROUTES (NESTED) ================= */}
+        {/* Perubahan Utama: 
+            Semua route admin dibungkus dalam satu Route Parent.
+            AdminDashboard menjadi Layout utama.
+        */}
+        <Route 
+          path="/admin" 
           element={
             <ProtectedRoute role="admin">
               <AdminDashboard />
             </ProtectedRoute>
           }
-        />
+        >
+          {/* Index akan otomatis mengarah ke dashboard overview yang ada di AdminDashboard.jsx */}
+          <Route path="dashboard" element={null} /> 
 
-        <Route path="/admin/dokumen-mutu" element={<ProtectedRoute role="admin"><DokumenMutu /></ProtectedRoute>} />
-        <Route path="/admin/ia01-observasi" element={<ProtectedRoute role="admin"><IA01Observasi /></ProtectedRoute>} />
-        <Route path="/admin/ia03-pertanyaan" element={<ProtectedRoute role="admin"><IA03Pertanyaan /></ProtectedRoute>} />
-        <Route path="/admin/jadwal-uji" element={<ProtectedRoute role="admin"><JadwalUji /></ProtectedRoute>} />
-        <Route path="/admin/notifikasi" element={<ProtectedRoute role="admin"><Notifikasi /></ProtectedRoute>} />
-        <Route path="/admin/pengaduan" element={<ProtectedRoute role="admin"><Pengaduan /></ProtectedRoute>} />
-        <Route path="/admin/profile" element={<ProtectedRoute role="admin"><ProfileAdmin /></ProtectedRoute>} />
-        <Route path="/admin/skema" element={<ProtectedRoute role="admin"><Skema /></ProtectedRoute>} />
-        <Route path="/admin/skkni" element={<ProtectedRoute role="admin"><Skkni /></ProtectedRoute>} />
-        <Route path="/admin/tempat-uji" element={<ProtectedRoute role="admin"><TempatUji /></ProtectedRoute>} />
-        <Route path="/admin/unit-kompetensi" element={<ProtectedRoute role="admin"><UnitKompetensi /></ProtectedRoute>} />
-        <Route path="/admin/verifikasi" element={<ProtectedRoute role="admin"><VerifikasiPendaftaran /></ProtectedRoute>} />
-        <Route path="/admin/asesor" element={<ProtectedRoute role="admin"><Asesor /></ProtectedRoute>} />
+          {/* MENYAMAKAN PATH DENGAN SIDEBAR.JSX */}
+          
+          {/* Menu: Standar Kompetensi */}
+          <Route path="unit-kompetensi" element={<UnitKompetensi />} />
+          <Route path="skkni" element={<Skkni />} />
+          <Route path="skema" element={<Skema />} />
+
+          {/* Menu: Dokumen Mutu */}
+          <Route path="dokumen-mutu" element={<DokumenMutu />} />
+
+          {/* Menu: Event & Jadwal */}
+          {/* Sidebar mengarah ke /admin/jadwal/uji-kompetensi */}
+          <Route path="jadwal/uji-kompetensi" element={<JadwalUji />} /> 
+          
+          {/* Menu: Tempat Uji */}
+          <Route path="tuk" element={<TempatUji />} />
+
+          {/* Menu: Data Asesi */}
+          {/* Sidebar mengarah ke /admin/verifikasi-pendaftaran */}
+          <Route path="verifikasi-pendaftaran" element={<VerifikasiPendaftaran />} />
+          
+          {/* Sidebar mengarah ke submenu IA01 & IA03 */}
+          <Route path="asesi/ia01-observasi" element={<IA01Observasi />} />
+          <Route path="asesi/ia03-pertanyaan" element={<IA03Pertanyaan />} />
+
+          {/* Menu: Data Asesor */}
+          <Route path="asesor" element={<Asesor />} />
+
+          {/* Menu: Sistem & Web */}
+          <Route path="notifikasi" element={<Notifikasi />} />
+
+          {/* Menu: Layanan */}
+          <Route path="pengaduan" element={<Pengaduan />} />
+          <Route path="profil-lsp" element={<ProfileAdmin />} /> {/* Sidebar arahnya ke /admin/profil-lsp */}
+          
+          {/* Route Tambahan untuk path yang mungkin belum dibuat file-nya tapi ada di sidebar 
+              (Agar tidak blank page, Anda bisa buat komponen Placeholder sementara)
+          */}
+           <Route path="banding" element={<div>Halaman Banding (Belum dibuat)</div>} />
+           <Route path="laporan/*" element={<div>Halaman Laporan (Belum dibuat)</div>} />
+           <Route path="keuangan" element={<div>Halaman Keuangan (Belum dibuat)</div>} />
+           
+        </Route>
 
       </Routes>
     </Router>
