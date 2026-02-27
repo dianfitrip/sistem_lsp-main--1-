@@ -20,6 +20,7 @@ const Sidebar = () => {
     standar: false,
     biaya: false,
     event: false,
+    tuk: false, // <-- Menambahkan state dropdown untuk TUK
     asesi: false,
     asesor: false,
     manajemen: false,
@@ -36,6 +37,7 @@ const Sidebar = () => {
       standar: prev.standar || path.includes('/admin/unit-kompetensi') || path.includes('/admin/skkni'),
       biaya: prev.biaya || path.includes('/admin/biaya'),
       event: prev.event || path.includes('/admin/jadwal'),
+      tuk: prev.tuk || path.includes('/admin/tuk'), // <-- Auto-open untuk dropdown TUK
       asesi: prev.asesi || path.includes('/admin/asesi') || path.includes('/admin/verifikasi-pendaftaran'),
       asesor: prev.asesor || path.includes('/admin/asesor'),
       manajemen: prev.manajemen || path.includes('/admin/manajemen'),
@@ -257,10 +259,23 @@ const Sidebar = () => {
           </div>
         )}
 
-        <button className={`nav-item ${isActive('/admin/tuk') ? 'active' : ''}`} onClick={() => handleNav('/admin/tuk')}>
+        {/* --- PERUBAHAN TUK MENJADI DROPDOWN --- */}
+        <button className={`nav-item has-submenu ${openMenus.tuk ? 'open' : ''} ${isActive('/admin/tuk') ? 'active' : ''}`} onClick={() => toggleMenu('tuk')}>
           <div className="nav-icon"><FaBuilding /></div>
           <span className="nav-label">Tempat Uji (TUK)</span>
+          <span className="arrow-icon">{openMenus.tuk ? <FaChevronDown /> : <FaChevronRight />}</span>
         </button>
+        {openMenus.tuk && (
+          <div className="submenu">
+            <button className={`submenu-item ${isActive('/admin/tuk') && !isActive('/admin/tuk/persyaratan') ? 'active' : ''}`} onClick={() => handleNav('/admin/tuk')}>
+              <span className="dot"></span> Daftar TUK
+            </button>
+            <button className={`submenu-item ${isActive('/admin/tuk/persyaratan') ? 'active' : ''}`} onClick={() => handleNav('/admin/tuk/persyaratan')}>
+              <span className="dot"></span> Persyaratan TUK
+            </button>
+          </div>
+        )}
+        {/* --- AKHIR PERUBAHAN TUK --- */}
 
         <button className={`nav-item has-submenu ${openMenus.asesi ? 'open' : ''} ${(isActive('/admin/asesi') || isActive('/admin/verifikasi-pendaftaran')) ? 'active' : ''}`} onClick={() => toggleMenu('asesi')}>
           <div className="nav-icon"><FaUserGraduate /></div>

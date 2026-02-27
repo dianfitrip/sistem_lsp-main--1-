@@ -1,12 +1,10 @@
 const XLSX = require("xlsx");
-const { ProfileAsesi, Role } = require("../../models");
+const { ProfileAsesi, Role, User, Notifikasi } = require("../../models");
 const response = require("../../utils/response.util");
-const { createUserWithNotification } = require("../../services/account.service");
-const { sendAccountEmail } = require("../../services/email.service");
+const { createUser  } = require("../../services/account.service");
 const sequelize = require("../../config/database");
 
 exports.importAsesiExcel = async (req, res) => {
-
   try {
 
     if (!req.file) {
@@ -30,10 +28,13 @@ exports.importAsesiExcel = async (req, res) => {
     let totalFailed = 0;
 
     for (const row of data) {
+
       const t = await sequelize.transaction();
+
       try {
-        const { user, rawPassword, notifikasi } =
-          await createUserWithNotification({
+
+        const { user } =
+          await createUser({
             username: row.nik,
             email: row.email,
             no_hp: row.no_hp,
@@ -70,23 +71,6 @@ exports.importAsesiExcel = async (req, res) => {
         }, { transaction: t });
 
         await t.commit();
-        try {
-
-          await sendAccountEmail(row.email, row.nik, rawPassword);
-
-          await notifikasi.update({
-            status_kirim: "terkirim"
-          });
-
-        } catch (emailError) {
-
-          await notifikasi.update({
-            status_kirim: "gagal"
-          });
-
-          console.error("Email gagal:", emailError.message);
-        }
-
         totalSuccess++;
 
       } catch (err) {
@@ -110,14 +94,25 @@ exports.importAsesiExcel = async (req, res) => {
 
 exports.getAll = async (req, res) => {
   try {
+
     const data = await ProfileAsesi.findAll({
-      include: {
-        model: User,
-        attributes: ["id_user", "email", "no_hp", "status_user"]
-      }
+      include: [
+        {
+          model: User,
+          attributes: ["id_user", "email", "no_hp", "status_user"],
+          include: [
+            {
+              model: Notifikasi,
+              where: { ref_type: "akun" },
+              required: false
+            }
+          ]
+        }
+      ]
     });
 
     return response.success(res, "List Asesi", data);
+
   } catch (err) {
     return response.error(res, err.message);
   }

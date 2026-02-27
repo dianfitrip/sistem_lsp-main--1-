@@ -1,15 +1,15 @@
 const XLSX = require("xlsx");
-const { User, ProfileTuk, Role } = require("../../models");
+const { User, ProfileTuk, Role, Notifikasi } = require("../../models");
 const response = require("../../utils/response.util");
-const { createUserWithNotification } = require("../../services/account.service");
+const { createUser } = require("../../services/account.service");
 const sequelize = require("../../config/database");
-const { sendAccountEmail } = require("../../services/email.service");
 
 exports.createTuk = async (req, res) => {
 
   const t = await sequelize.transaction();
 
   try {
+
     const { kode_tuk, email, no_hp, ...profile } = req.body;
 
     const role = await Role.findOne({
@@ -21,13 +21,12 @@ exports.createTuk = async (req, res) => {
       return response.error(res, "Role TUK tidak ditemukan", 500);
     }
 
-    const { user, rawPassword, notifikasi } =
-      await createUserWithNotification({
-        username: kode_tuk,
-        email,
-        no_hp,
-        id_role: role.id_role
-      }, { transaction: t });
+    const { user } = await createUser({
+      username: kode_tuk,
+      email,
+      no_hp,
+      id_role: role.id_role
+    }, { transaction: t });
 
     await ProfileTuk.create({
       id_user: user.id_user,
@@ -37,24 +36,10 @@ exports.createTuk = async (req, res) => {
 
     await t.commit();
 
-    try {
-
-      await sendAccountEmail(email, kode_tuk, rawPassword);
-
-      await notifikasi.update({
-        status_kirim: "terkirim"
-      });
-
-    } catch (emailError) {
-
-      await notifikasi.update({
-        status_kirim: "gagal"
-      });
-
-      console.error("Email gagal:", emailError.message);
-    }
-
-    return response.success(res, "Akun TUK berhasil dibuat");
+    return response.success(
+      res,
+      "Akun TUK berhasil dibuat. Email belum dikirim."
+    );
 
   } catch (err) {
 
@@ -76,6 +61,10 @@ exports.importTukExcel = async (req, res) => {
     const sheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(sheet);
 
+    if (!data.length) {
+      return response.error(res, "File Excel kosong", 400);
+    }
+
     const role = await Role.findOne({
       where: { role_name: "TUK" }
     });
@@ -92,13 +81,17 @@ exports.importTukExcel = async (req, res) => {
       const t = await sequelize.transaction();
 
       try {
-        const { user, rawPassword, notifikasi } =
-          await createUserWithNotification({
-            username: row.kode_tuk,
-            email: row.email,
-            no_hp: row.no_hp,
-            id_role: role.id_role
-          }, { transaction: t });
+
+        if (!row.kode_tuk || !row.email) {
+          throw new Error("Kode TUK atau Email kosong");
+        }
+
+        const { user } = await createUser({
+          username: row.kode_tuk,
+          email: row.email,
+          no_hp: row.no_hp || null,
+          id_role: role.id_role
+        }, { transaction: t });
 
         await ProfileTuk.create({
           id_user: user.id_user,
@@ -117,24 +110,6 @@ exports.importTukExcel = async (req, res) => {
         }, { transaction: t });
 
         await t.commit();
-
-        try {
-
-          await sendAccountEmail(row.email, row.kode_tuk, rawPassword);
-
-          await notifikasi.update({
-            status_kirim: "terkirim"
-          });
-
-        } catch (emailError) {
-
-          await notifikasi.update({
-            status_kirim: "gagal"
-          });
-
-          console.error("Email gagal:", emailError.message);
-        }
-
         totalSuccess++;
 
       } catch (err) {
@@ -152,21 +127,31 @@ exports.importTukExcel = async (req, res) => {
     );
 
   } catch (err) {
-
     return response.error(res, err.message);
   }
 };
 
 exports.getAll = async (req, res) => {
   try {
+
     const data = await ProfileTuk.findAll({
-      include: {
-        model: User,
-        attributes: ["id_user", "email", "no_hp", "status_user"]
-      }
+      include: [
+        {
+          model: User,
+          attributes: ["id_user", "email", "no_hp", "status_user"],
+          include: [
+            {
+              model: Notifikasi,
+              where: { ref_type: "akun" },
+              required: false
+            }
+          ]
+        }
+      ]
     });
 
     return response.success(res, "List TUK", data);
+
   } catch (err) {
     return response.error(res, err.message);
   }

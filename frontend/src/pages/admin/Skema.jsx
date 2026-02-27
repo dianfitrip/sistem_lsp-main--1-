@@ -4,7 +4,7 @@ import api from "../../services/api";
 import * as XLSX from 'xlsx';
 import { 
   Search, Plus, Eye, Edit2, Trash2, X, Save, Download, Upload,
-  FileText, CheckCircle, XCircle, Loader2, ChevronLeft, ChevronRight
+  FileText, Loader2, BookOpen, Layers, FileCheck, Globe
 } from 'lucide-react';
 import './adminstyles/Skema.css'; 
 
@@ -13,77 +13,43 @@ const Skema = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState('');
-  const [selectedItem, setSelectedItem] = useState(null);
   
-  const [listSkkni, setListSkkni] = useState([]);
-  const [listSkemaInduk, setListSkemaInduk] = useState([]);
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentId, setCurrentId] = useState(null);
 
-  const [pagination, setPagination] = useState({
-    page: 1, limit: 10, total: 0, totalPages: 1
-  });
-
-  const [importFile, setImportFile] = useState(null);
-  const [importPreview, setImportPreview] = useState([]);
-
-  // State Form
-  const [formData, setFormData] = useState({
+  // State Form (Sesuai Model Database)
+  const initialFormState = {
     kode_skema: '',
     judul_skema: '',
     judul_skema_en: '',
-    jenis_skema: 'KKNI',
+    jenis_skema: 'kkni', // Default Enum
     level_kkni: '',
     bidang_okupasi: '',
     kode_sektor: '',
     kode_kbli: '',
-    kode_kbji: '', // TAMBAHAN: State kode_kbji
-    skema_induk_id: '',
+    kode_kbji: '',
     keterangan_bukti: '',
-    skor_min_ai05: '',
-    kedalaman_bukti: '',
-    status: 'aktif',
-    skkni_id: ''
-  });
+    skor_min_ai05: 0,
+    kedalaman_bukti: 'elemen_kompetensi', // Default Enum
+    dokumen: '', // String path/link
+    status: 'draft' // Default Enum
+  };
 
-  const [dokumenFile, setDokumenFile] = useState(null);
+  const [formData, setFormData] = useState(initialFormState);
 
   // --- FETCH DATA ---
-  const getSafeList = (response) => {
-    if (!response || !response.data) return [];
-    if (response.data.data && Array.isArray(response.data.data.data)) return response.data.data.data;
-    if (response.data.data && Array.isArray(response.data.data)) return response.data.data;
-    return [];
-  };
-
-  const fetchSupportingData = async () => {
-    try {
-      const [skkniRes, skemaRes] = await Promise.all([
-        api.get('/admin/skkni?limit=1000').catch(() => ({ data: { data: [] } })), 
-        api.get('/admin/skema?limit=1000').catch(() => ({ data: { data: [] } }))
-      ]);
-      setListSkkni(getSafeList(skkniRes));
-      setListSkemaInduk(getSafeList(skemaRes));
-    } catch (error) {
-      console.error("Error fetching options:", error);
-    }
-  };
-
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/admin/skema', {
-        params: { search: searchTerm, page: pagination.page, limit: pagination.limit }
-      });
-      if (response.data.success) {
-        const rows = response.data.data.data || [];
-        setData(rows);
-        setPagination(prev => ({
-          ...prev, total: response.data.data.total || 0, totalPages: response.data.data.totalPages || 1
-        }));
-      }
+      const response = await api.get('/admin/skema');
+      const skemaData = response.data.data || [];
+      setData(skemaData);
     } catch (error) {
-      Swal.fire('Error', error.response?.data?.message || 'Gagal mengambil data', 'error');
+      console.error("Error fetching data:", error);
+      Swal.fire('Error', 'Gagal memuat data skema.', 'error');
     } finally {
       setLoading(false);
     }
@@ -91,422 +57,304 @@ const Skema = () => {
 
   useEffect(() => {
     fetchData();
-    fetchSupportingData();
-  }, [pagination.page, searchTerm]);
+  }, []);
+
+  // --- FILTER ---
+  const filteredData = data.filter(item => 
+    (item.judul_skema && item.judul_skema.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (item.kode_skema && item.kode_skema.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   // --- HANDLERS ---
-  const handleInputChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    setDokumenFile(file);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const payload = new FormData();
-    Object.keys(formData).forEach(key => {
-      if (formData[key] !== null && formData[key] !== undefined) {
-        payload.append(key, formData[key]);
-      }
-    });
-
-    if (dokumenFile) {
-      payload.append('dokumen', dokumenFile);
+    // Validasi Sederhana
+    if (!formData.kode_skema || !formData.judul_skema) {
+      Swal.fire('Peringatan', 'Kode dan Judul Skema wajib diisi!', 'warning');
+      return;
     }
 
     try {
-      if (modalType === 'create') {
-        await api.post('/admin/skema', payload);
-        Swal.fire('Sukses', 'Skema berhasil ditambahkan', 'success');
+      Swal.fire({ title: 'Menyimpan...', didOpen: () => Swal.showLoading() });
+
+      // Sanitasi Payload
+      const payload = {
+        ...formData,
+        level_kkni: formData.level_kkni ? parseInt(formData.level_kkni) : null,
+        skor_min_ai05: formData.skor_min_ai05 ? parseInt(formData.skor_min_ai05) : 0,
+      };
+
+      if (isEditMode) {
+        await api.put(`/admin/skema/${currentId}`, payload);
+        Swal.fire('Sukses', 'Data Skema diperbarui', 'success');
       } else {
-        await api.put(`/admin/skema/${selectedItem.id_skema}`, payload);
-        Swal.fire('Sukses', 'Skema berhasil diperbarui', 'success');
+        await api.post('/admin/skema', payload);
+        Swal.fire('Sukses', 'Skema baru ditambahkan', 'success');
       }
+
       setShowModal(false);
       fetchData();
+      resetForm();
+
     } catch (error) {
-      console.error("Submit Error:", error);
-      Swal.fire('Error', error.response?.data?.message || 'Gagal menyimpan data', 'error');
+      console.error("Submit error:", error);
+      const msg = error.response?.data?.message || 'Gagal menyimpan data';
+      Swal.fire('Gagal', msg, 'error');
     }
   };
 
   const handleDelete = async (id) => {
     const result = await Swal.fire({
-      title: 'Hapus Data?', text: "Data tidak bisa dikembalikan!", icon: 'warning',
-      showCancelButton: true, confirmButtonText: 'Hapus', cancelButtonText: 'Batal', confirmButtonColor: '#d33'
+      title: 'Hapus Skema?',
+      text: "Data tidak dapat dikembalikan!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Ya, Hapus!'
     });
+
     if (result.isConfirmed) {
       try {
         await api.delete(`/admin/skema/${id}`);
-        Swal.fire('Terhapus!', 'Data telah dihapus.', 'success');
+        Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
         fetchData();
       } catch (error) {
-        Swal.fire('Error', 'Gagal menghapus data', 'error');
+        Swal.fire('Gagal', 'Gagal menghapus data.', 'error');
       }
     }
   };
 
-  const handleExport = async (format) => {
-    try {
-      const response = await api.get(`/admin/skema/export?format=${format}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `data_skema.${format === 'csv' ? 'csv' : 'json'}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      Swal.fire('Error', 'Gagal export data', 'error');
-    }
+  // --- HELPERS ---
+  const resetForm = () => {
+    setFormData(initialFormState);
+    setIsEditMode(false);
+    setCurrentId(null);
   };
 
-  // --- IMPORT HANDLERS ---
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImportFile(file);
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const bstr = evt.target.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        setImportPreview(data.slice(0, 5));
-      };
-      reader.readAsBinaryString(file);
-    }
-  };
-
-  const handleImport = async () => {
-    if (!importFile) return;
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const bstr = evt.target.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const jsonData = XLSX.utils.sheet_to_json(ws);
-
-        const mappedData = jsonData.map(item => ({
-          kode_skema: item['Kode Skema'] || item.kode_skema,
-          judul_skema: item['Judul Skema'] || item.judul_skema,
-          jenis_skema: item['Jenis'] || item.jenis_skema,
-          level_kkni: item['Level'] || item.level_kkni,
-          kode_kbli: item['Kode KBLI'] || item.kode_kbli,
-          kode_kbji: item['Kode KBJI'] || item.kode_kbji, // TAMBAHAN: Map kode_kbji
-          status: item['Status'] || item.status
-        }));
-
-        const response = await api.post('/admin/skema/import', { data: mappedData });
-        
-        if (response.data.success) {
-          Swal.fire('Import Selesai', response.data.message || 'Data berhasil diimport', 'success');
-          setShowModal(false);
-          fetchData();
-        }
-      } catch (error) {
-        Swal.fire('Error', 'Gagal memproses file import', 'error');
-      }
-    };
-    reader.readAsBinaryString(importFile);
-  };
-
-  const openModal = (type, item = null) => {
-    setModalType(type);
-    setSelectedItem(item);
-    setDokumenFile(null); 
-
-    if (type === 'create') {
-      setFormData({
-        kode_skema: '', judul_skema: '', judul_skema_en: '', jenis_skema: 'KKNI',
-        level_kkni: '1', 
-        bidang_okupasi: '', kode_sektor: '', 
-        kode_kbli: '', kode_kbji: '', // TAMBAHAN: Reset
-        skema_induk_id: '',
-        keterangan_bukti: '', skor_min_ai05: '', kedalaman_bukti: '', 
-        status: 'aktif', skkni_id: ''
-      });
-    } else if (type === 'edit' && item) {
-      setFormData({
-        kode_skema: item.kode_skema,
-        judul_skema: item.judul_skema,
-        judul_skema_en: item.judul_skema_en || '',
-        jenis_skema: item.jenis_skema,
-        level_kkni: item.level_kkni || '1',
-        bidang_okupasi: item.bidang_okupasi || '',
-        kode_sektor: item.kode_sektor || '',
-        kode_kbli: item.kode_kbli || '',
-        kode_kbji: item.kode_kbji || '', // TAMBAHAN: Load existing data
-        skema_induk_id: item.skema_induk_id || '',
-        keterangan_bukti: item.keterangan_bukti || '',
-        skor_min_ai05: item.skor_min_ai05 || '',
-        kedalaman_bukti: item.kedalaman_bukti || '',
-        status: item.status || 'aktif',
-        skkni_id: item.skkni_id || ''
-      });
-    }
-    setImportFile(null);
-    setImportPreview([]);
+  const handleAdd = () => {
+    resetForm();
     setShowModal(true);
+  };
+
+  const handleEdit = (item) => {
+    setIsEditMode(true);
+    setCurrentId(item.id_skema);
+    setFormData({
+      kode_skema: item.kode_skema || '',
+      judul_skema: item.judul_skema || '',
+      judul_skema_en: item.judul_skema_en || '',
+      jenis_skema: item.jenis_skema || 'kkni',
+      level_kkni: item.level_kkni || '',
+      bidang_okupasi: item.bidang_okupasi || '',
+      kode_sektor: item.kode_sektor || '',
+      kode_kbli: item.kode_kbli || '',
+      kode_kbji: item.kode_kbji || '',
+      keterangan_bukti: item.keterangan_bukti || '',
+      skor_min_ai05: item.skor_min_ai05 || 0,
+      kedalaman_bukti: item.kedalaman_bukti || 'elemen_kompetensi',
+      dokumen: item.dokumen || '',
+      status: item.status || 'draft'
+    });
+    setShowModal(true);
+  };
+
+  const handleExport = () => {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data Skema");
+    XLSX.writeFile(wb, "Data_Skema_LSP.xlsx");
   };
 
   return (
     <div className="skema-container">
-      {/* Header & Filter (Sama) */}
+      {/* HEADER */}
       <div className="header-section">
         <div className="title-box">
-          <h2>Data Skema Sertifikasi</h2>
-          <p>Kelola data skema sertifikasi kompetensi</p>
+          <h2 className="page-title">Data Skema Sertifikasi</h2>
+          <p className="page-subtitle">Kelola skema sertifikasi KKNI, Okupasi, dan Klaster</p>
         </div>
         <div className="action-buttons-group">
-          <button className="btn-create" onClick={() => openModal('create')}><Plus size={18} /> Tambah</button>
-          <button className="btn-export" onClick={() => handleExport('csv')}><Download size={18} /> Export</button>
-          <button className="btn-import" onClick={() => openModal('import')}><Upload size={18} /> Import</button>
-        </div>
-      </div>
-      <div className="filter-section">
-        <div className="search-box">
-          <Search className="search-icon" size={20} />
-          <input type="text" placeholder="Cari Kode, Judul..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <button className="btn-create" onClick={handleAdd}><Plus size={18} /> Tambah Skema</button>
+          <button className="btn-export" onClick={handleExport}><Download size={18} /> Export</button>
+          {/* <button className="btn-import" onClick={() => setShowImportModal(true)}><Upload size={18} /> Import</button> */}
         </div>
       </div>
 
-      {/* Table Section */}
-      <div className="table-container">
-        {loading ? (
-          <div className="loading-state"><Loader2 className="animate-spin" size={32} /><p>Memuat data...</p></div>
-        ) : (
-          <table className="data-table">
+      {/* FILTER */}
+      <div className="filter-box">
+        <div className="search-wrapper">
+          <Search className="search-icon" size={20} />
+          <input 
+            type="text" 
+            placeholder="Cari Judul atau Kode Skema..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* TABLE */}
+      {loading ? (
+        <div className="loading-state"><Loader2 className="animate-spin" /> Memuat Data...</div>
+      ) : (
+        <div className="table-wrapper">
+          <table className="custom-table">
             <thead>
               <tr>
                 <th>No</th>
                 <th>Kode</th>
                 <th>Judul Skema</th>
+                <th>Jenis</th>
                 <th>Level</th>
-                <th>Dokumen</th>
                 <th>Status</th>
                 <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {data.length > 0 ? (
-                data.map((item, index) => (
-                  <tr key={item.id_skema}>
-                    <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
-                    <td className="font-medium">{item.kode_skema}</td>
-                    <td>{item.judul_skema}</td>
-                    <td><span className="badge-level">Level {item.level_kkni || '-'}</span></td>
+              {filteredData.length > 0 ? (
+                filteredData.map((item, index) => (
+                  <tr key={item.id_skema || index}>
+                    <td>{index + 1}</td>
+                    <td><span className="font-mono font-bold text-blue-600">{item.kode_skema}</span></td>
                     <td>
-                      {item.dokumen ? (
-                        <a href={`http://localhost:3000/uploads/${item.dokumen}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                          <FileText size={14}/> Lihat
-                        </a>
-                      ) : <span className="text-gray-400">-</span>}
+                      <div className="font-semibold text-gray-800">{item.judul_skema}</div>
+                      {item.judul_skema_en && <div className="text-xs text-gray-500 italic">{item.judul_skema_en}</div>}
                     </td>
+                    <td style={{textTransform: 'uppercase'}}>{item.jenis_skema}</td>
+                    <td className="text-center">{item.level_kkni || '-'}</td>
                     <td>
-                      <span className={`status-badge ${item.status === 'aktif' ? 'status-active' : 'status-inactive'}`}>
-                        {item.status === 'aktif' ? <CheckCircle size={14}/> : <XCircle size={14}/>} {item.status}
+                      <span className={`badge status-${item.status}`}>
+                        {item.status}
                       </span>
                     </td>
                     <td>
-                      <div className="action-buttons">
-                        <button className="btn-action edit" onClick={() => openModal('edit', item)}><Edit2 size={18} /></button>
-                        <button className="btn-action delete" onClick={() => handleDelete(item.id_skema)}><Trash2 size={18} /></button>
+                      <div className="action-group">
+                        <button className="btn-icon btn-edit" onClick={() => handleEdit(item)}><Edit2 size={16}/></button>
+                        <button className="btn-icon btn-delete" onClick={() => handleDelete(item.id_skema)}><Trash2 size={16}/></button>
                       </div>
                     </td>
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan="7" className="text-center py-8 text-gray-500">Tidak ada data ditemukan</td></tr>
+                <tr>
+                  <td colSpan="7" className="text-center py-8 text-gray-500">Data tidak ditemukan.</td>
+                </tr>
               )}
             </tbody>
           </table>
-        )}
-      </div>
-
-      {/* Pagination */}
-      <div className="pagination-section">
-        <div className="pagination-info">Menampilkan {data.length} dari {pagination.total} data</div>
-        <div className="pagination-controls">
-          <button disabled={pagination.page === 1} onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}><ChevronLeft size={18} /></button>
-          <span>Hal {pagination.page} dari {pagination.totalPages}</span>
-          <button disabled={pagination.page === pagination.totalPages} onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}><ChevronRight size={18} /></button>
         </div>
-      </div>
+      )}
 
-      {/* Modal Form */}
-      {showModal && modalType !== 'import' && (
+      {/* MODAL FORM */}
+      {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content modal-xl">
             <div className="modal-header">
-              <h3>{modalType === 'create' ? 'Tambah Skema' : 'Edit Skema'}</h3>
+              <h3>{isEditMode ? 'Edit Skema' : 'Tambah Skema Baru'}</h3>
               <button className="btn-close" onClick={() => setShowModal(false)}><X size={20}/></button>
             </div>
+            
             <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Kode Skema <span className="text-red-500">*</span></label>
-                  <input type="text" name="kode_skema" value={formData.kode_skema} onChange={handleInputChange} required placeholder="Contoh: SKM/001" />
+              <div className="modal-body-scroll">
+                
+                {/* SECTION 1: INFORMASI DASAR */}
+                <div className="form-section-label"><Layers size={14}/> Identitas Skema</div>
+                <div className="grid-2-col">
+                  <div className="form-group">
+                    <label>Kode Skema *</label>
+                    <input name="kode_skema" value={formData.kode_skema} onChange={handleChange} required placeholder="Misal: SKM/LSP/001"/>
+                  </div>
+                  <div className="form-group">
+                    <label>Status Skema</label>
+                    <select name="status" value={formData.status} onChange={handleChange}>
+                      <option value="draft">Draft</option>
+                      <option value="aktif">Aktif</option>
+                      <option value="nonaktif">Non-Aktif</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="form-group">
-                  <label>Judul Skema (Indonesia) <span className="text-red-500">*</span></label>
-                  <input type="text" name="judul_skema" value={formData.judul_skema} onChange={handleInputChange} required />
+                  <label>Judul Skema (Indonesia) *</label>
+                  <input name="judul_skema" value={formData.judul_skema} onChange={handleChange} required />
                 </div>
                 <div className="form-group">
                   <label>Judul Skema (Inggris)</label>
-                  <input type="text" name="judul_skema_en" value={formData.judul_skema_en} onChange={handleInputChange} />
+                  <input name="judul_skema_en" value={formData.judul_skema_en} onChange={handleChange} placeholder="Optional" />
                 </div>
 
-                <div className="form-row">
+                {/* SECTION 2: KLASIFIKASI */}
+                <div className="form-section-label mt-4"><BookOpen size={14}/> Klasifikasi & Sektor</div>
+                <div className="grid-3-col">
                   <div className="form-group">
-                    <label>Jenis Skema</label>
-                    <select name="jenis_skema" value={formData.jenis_skema} onChange={handleInputChange}>
-                      <option value="KKNI">KKNI</option>
-                      <option value="Okupasi">Okupasi</option>
-                      <option value="Klaster">Klaster</option>
+                    <label>Jenis Skema *</label>
+                    <select name="jenis_skema" value={formData.jenis_skema} onChange={handleChange}>
+                      <option value="kkni">KKNI</option>
+                      <option value="okupasi">Okupasi</option>
+                      <option value="klaster">Klaster</option>
                     </select>
                   </div>
-                  
                   <div className="form-group">
                     <label>Level KKNI</label>
-                    <select name="level_kkni" value={formData.level_kkni} onChange={handleInputChange}>
-                      <option value="">-- Pilih Level --</option>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                        <option key={num} value={num}>Level {num}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* UPLOAD DOKUMEN */}
-                <div className="form-group">
-                  <label>Upload Dokumen Skema (PDF/DOCX)</label>
-                  <div className="file-input-wrapper">
-                    <input type="file" onChange={handleFileChange} className="w-full border p-2 rounded" accept=".pdf,.doc,.docx" />
-                    {modalType === 'edit' && selectedItem?.dokumen && (
-                      <small className="text-gray-500 block mt-1">
-                        File saat ini: {selectedItem.dokumen} (Upload baru untuk mengganti)
-                      </small>
-                    )}
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Bidang Okupasi</label>
-                    <input type="text" name="bidang_okupasi" value={formData.bidang_okupasi} onChange={handleInputChange} />
+                    <input type="number" name="level_kkni" value={formData.level_kkni} onChange={handleChange} placeholder="1-9" />
                   </div>
                   <div className="form-group">
                     <label>Kode Sektor</label>
-                    <input type="text" name="kode_sektor" value={formData.kode_sektor} onChange={handleInputChange} />
+                    <input name="kode_sektor" value={formData.kode_sektor} onChange={handleChange} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Bidang Okupasi</label>
+                  <input name="bidang_okupasi" value={formData.bidang_okupasi} onChange={handleChange} />
+                </div>
+                <div className="grid-2-col">
+                  <div className="form-group">
+                    <label>Kode KBLI</label>
+                    <input name="kode_kbli" value={formData.kode_kbli} onChange={handleChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Kode KBJI</label>
+                    <input name="kode_kbji" value={formData.kode_kbji} onChange={handleChange} />
                   </div>
                 </div>
 
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Kode KBLI</label>
-                        <input type="text" name="kode_kbli" value={formData.kode_kbli} onChange={handleInputChange} />
-                    </div>
-                    {/* TAMBAHAN: Kode KBJI */}
-                    <div className="form-group">
-                        <label>Kode KBJI</label>
-                        <input type="text" name="kode_kbji" value={formData.kode_kbji} onChange={handleInputChange} />
-                    </div>
-                </div>
-
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Skor Min. (AI05)</label>
-                        <input type="number" name="skor_min_ai05" value={formData.skor_min_ai05} onChange={handleInputChange} />
-                    </div>
-                    <div className="form-group">
-                        <label>Status</label>
-                        <select name="status" value={formData.status} onChange={handleInputChange}>
-                            <option value="aktif">Aktif</option>
-                            <option value="nonaktif">Non Aktif</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Referensi SKKNI</label>
-                  <select name="skkni_id" value={formData.skkni_id} onChange={handleInputChange}>
-                    <option value="">-- Tidak Ada --</option>
-                    {(listSkkni || []).map(s => (
-                      <option key={s.id_skkni} value={s.id_skkni}>{s.no_skkni || 'N/A'} - {s.judul_skkni}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Skema Induk</label>
-                  <select name="skema_induk_id" value={formData.skema_induk_id} onChange={handleInputChange}>
-                    <option value="">-- Tidak Ada --</option>
-                    {(listSkemaInduk || []).map(s => (
-                      (s && selectedItem && s.id_skema === selectedItem.id_skema) ? null : 
-                      <option key={s?.id_skema} value={s?.id_skema}>{s?.kode_skema} - {s?.judul_skema}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
+                {/* SECTION 3: PENGATURAN ASESMEN */}
+                <div className="form-section-label mt-4"><FileCheck size={14}/> Parameter Asesmen</div>
+                <div className="grid-2-col">
+                  <div className="form-group">
                     <label>Kedalaman Bukti</label>
-                    <select name="kedalaman_bukti" value={formData.kedalaman_bukti} onChange={handleInputChange} className="w-full border p-2 rounded">
-                        <option value="">-- Pilih --</option>
-                        <option value="Elemen Kompetensi">Elemen Kompetensi</option>
-                        <option value="Kriteria Unjuk Kerja">Kriteria Unjuk Kerja</option>
+                    <select name="kedalaman_bukti" value={formData.kedalaman_bukti} onChange={handleChange}>
+                      <option value="elemen_kompetensi">Elemen Kompetensi</option>
+                      <option value="kriteria_unjuk_kerja">Kriteria Unjuk Kerja</option>
                     </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Skor Min. AI 05</label>
+                    <input type="number" name="skor_min_ai05" value={formData.skor_min_ai05} onChange={handleChange} />
+                  </div>
                 </div>
-
                 <div className="form-group">
                   <label>Keterangan Bukti</label>
-                  <textarea name="keterangan_bukti" value={formData.keterangan_bukti} onChange={handleInputChange} rows="2"></textarea>
+                  <textarea name="keterangan_bukti" rows="3" value={formData.keterangan_bukti} onChange={handleChange}></textarea>
                 </div>
+                
+                <div className="form-group">
+                  <label>Link Dokumen (G-Drive / URL)</label>
+                  <input type="text" name="dokumen" value={formData.dokumen} onChange={handleChange} placeholder="https://..." />
+                </div>
+
               </div>
+
               <div className="modal-footer">
                 <button type="button" className="btn-cancel" onClick={() => setShowModal(false)}>Batal</button>
                 <button type="submit" className="btn-save"><Save size={16}/> Simpan</button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Import */}
-      {showModal && modalType === 'import' && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Import Data Skema</h3>
-              <button className="btn-close" onClick={() => setShowModal(false)}><X size={20}/></button>
-            </div>
-            <div className="modal-body">
-              <div className="file-upload-area">
-                <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="file-input" />
-                <div className="upload-placeholder"><Upload size={32} /><p>Klik untuk upload Excel</p></div>
-              </div>
-              {importFile && <div className="file-info"><FileText size={16} /><span>{importFile.name}</span></div>}
-              {importPreview.length > 0 && (
-                <div className="import-preview">
-                  <h4>Preview:</h4>
-                  <div className="preview-table">
-                    <table><thead><tr>{Object.keys(importPreview[0]).map(k=><th key={k}>{k}</th>)}</tr></thead><tbody>{importPreview.map((r,i)=><tr key={i}>{Object.values(r).map((v,j)=><td key={j}>{v}</td>)}</tr>)}</tbody></table>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowModal(false)}>Batal</button>
-              <button className="btn-save" onClick={handleImport} disabled={!importFile}>Proses Import</button>
-            </div>
           </div>
         </div>
       )}

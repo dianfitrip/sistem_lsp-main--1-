@@ -1,15 +1,15 @@
 const XLSX = require("xlsx");
-const { User, ProfileAsesor, Role } = require("../../models");
+const { User, ProfileAsesor, Role, Notifikasi } = require("../../models");
 const response = require("../../utils/response.util");
-const { createUserWithNotification } = require("../../services/account.service");
+const { createUser  } = require("../../services/account.service");
 const sequelize = require("../../config/database");
-const { sendAccountEmail } = require("../../services/email.service");
 
 exports.createAsesor = async (req, res) => {
 
   const t = await sequelize.transaction();
 
   try {
+
     const { nik, email, no_hp, ...profile } = req.body;
 
     const role = await Role.findOne({
@@ -21,8 +21,8 @@ exports.createAsesor = async (req, res) => {
       return response.error(res, "Role ASESOR tidak ditemukan", 500);
     }
 
-    const { user, rawPassword, notifikasi } =
-      await createUserWithNotification({
+    const { user } =
+      await createUser({
         username: nik,
         email,
         no_hp,
@@ -36,23 +36,11 @@ exports.createAsesor = async (req, res) => {
     }, { transaction: t });
 
     await t.commit();
-    try {
-      await sendAccountEmail(email, nik, rawPassword);
 
-      await notifikasi.update({
-        status_kirim: "terkirim"
-      });
-
-    } catch (emailError) {
-
-      await notifikasi.update({
-        status_kirim: "gagal"
-      });
-
-      console.error("Email gagal:", emailError.message);
-    }
-
-    return response.success(res, "Asesor berhasil dibuat");
+    return response.success(
+      res,
+      "Asesor berhasil dibuat. Email belum dikirim."
+    );
 
   } catch (err) {
 
@@ -62,18 +50,23 @@ exports.createAsesor = async (req, res) => {
 };
 
 exports.importAsesorExcel = async (req, res) => {
-
   try {
 
     if (!req.file) {
       return response.error(res, "File tidak ditemukan", 400);
     }
 
+    // 🔹 Baca file Excel
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(sheet);
 
+    if (!data.length) {
+      return response.error(res, "File Excel kosong", 400);
+    }
+
+    // 🔹 Ambil Role ASESOR
     const role = await Role.findOne({
       where: { role_name: "ASESOR" }
     });
@@ -90,20 +83,27 @@ exports.importAsesorExcel = async (req, res) => {
       const t = await sequelize.transaction();
 
       try {
-        const { user, rawPassword, notifikasi } =
-          await createUserWithNotification({
-            username: row.nik,
-            email: row.email,
-            no_hp: row.no_hp,
-            id_role: role.id_role
-          }, { transaction: t });
 
+        // 🔹 Validasi minimal
+        if (!row.nik || !row.email) {
+          throw new Error("NIK atau Email kosong");
+        }
+
+        // 🔹 Buat User (TANPA NOTIFIKASI)
+        const { user } = await createUser({
+          username: row.nik,
+          email: row.email,
+          no_hp: row.no_hp || null,
+          id_role: role.id_role
+        }, { transaction: t });
+
+        // 🔹 Buat Profile Asesor
         await ProfileAsesor.create({
           id_user: user.id_user,
           nik: row.nik,
-          gelar_depan: row.gelar_depan,
+          gelar_depan: row.gelar_depan || null,
           nama_lengkap: row.nama_lengkap,
-          gelar_belakang: row.gelar_belakang,
+          gelar_belakang: row.gelar_belakang || null,
           jenis_kelamin: row.jenis_kelamin,
           tempat_lahir: row.tempat_lahir,
           tanggal_lahir: row.tanggal_lahir,
@@ -127,24 +127,6 @@ exports.importAsesorExcel = async (req, res) => {
         }, { transaction: t });
 
         await t.commit();
-
-        try {
-
-          await sendAccountEmail(row.email, row.nik, rawPassword);
-
-          await notifikasi.update({
-            status_kirim: "terkirim"
-          });
-
-        } catch (emailError) {
-
-          await notifikasi.update({
-            status_kirim: "gagal"
-          });
-
-          console.error("Email gagal:", emailError.message);
-        }
-
         totalSuccess++;
 
       } catch (err) {
@@ -152,7 +134,10 @@ exports.importAsesorExcel = async (req, res) => {
         await t.rollback();
         totalFailed++;
 
-        console.error("Gagal import asesor:", row.nik, err.message);
+        console.error(
+          `Gagal import asesor NIK ${row.nik}:`,
+          err.message
+        );
       }
     }
 
@@ -162,21 +147,31 @@ exports.importAsesorExcel = async (req, res) => {
     );
 
   } catch (err) {
-
     return response.error(res, err.message);
   }
 };
 
 exports.getAll = async (req, res) => {
   try {
+
     const data = await ProfileAsesor.findAll({
-      include: {
-        model: User,
-        attributes: ["id_user", "email", "no_hp", "status_user"]
-      }
+      include: [
+        {
+          model: User,
+          attributes: ["id_user", "email", "no_hp", "status_user"],
+          include: [
+            {
+              model: Notifikasi,
+              where: { ref_type: "akun" },
+              required: false
+            }
+          ]
+        }
+      ]
     });
 
     return response.success(res, "List Asesor", data);
+
   } catch (err) {
     return response.error(res, err.message);
   }
